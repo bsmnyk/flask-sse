@@ -5,6 +5,9 @@ from collections import OrderedDict
 from flask import Blueprint, request, current_app, json, stream_with_context
 from redis import StrictRedis
 import six
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 __version__ = '0.2.1'
 
@@ -135,8 +138,11 @@ class ServerSentEventsBlueprint(Blueprint):
         """
         pubsub = self.redis.pubsub()
         pubsub.subscribe(channel)
+        logging.info(f"Subscribing to the channel: {str(channel)}")
         for pubsub_message in pubsub.listen():
+            logging.info(f"Pubsub message type: {str(pubsub_message['type'])}")
             if pubsub_message['type'] == 'message':
+                logging.info(f"Sending message to the channel: {str(pubsub_message['data'])}")
                 msg_dict = json.loads(pubsub_message['data'])
                 yield Message(**msg_dict)
 
@@ -152,6 +158,7 @@ class ServerSentEventsBlueprint(Blueprint):
         @stream_with_context
         def generator():
             for message in self.messages(channel=channel):
+                logging.info(f"Return a message from a generator.")
                 yield str(message)
 
         return current_app.response_class(
