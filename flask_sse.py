@@ -105,13 +105,14 @@ class ServerSentEventsBlueprint(Blueprint):
         A :class:`redis.StrictRedis` instance, configured to connect to the
         current application's Redis server.
         """
-        logging.info(f"inside [redis property] 1. returning redis connection.")
+        SOCKET_TIMEOUT = 60*30 # 30 minutes
+        logging.info(f"[redis property] 1. returning redis connection.")
         redis_url = current_app.config.get("SSE_REDIS_URL")
         if not redis_url:
             redis_url = current_app.config.get("REDIS_URL")
         if not redis_url:
             raise KeyError("Must set a redis connection URL in app config.")
-        return StrictRedis.from_url(redis_url, socket_timeout=60)
+        return StrictRedis.from_url(redis_url, socket_timeout=SOCKET_TIMEOUT)
 
     def publish(self, data, type=None, id=None, retry=None, channel='sse'):
         """
@@ -138,13 +139,11 @@ class ServerSentEventsBlueprint(Blueprint):
         A generator of :class:`~flask_sse.Message` objects from the given channel.
         """
         try:
-            logging.info(f"inside [messages] 1. channel: {str(channel)}")
+            logging.info(f"[messages] 1. channel: {str(channel)}")
             pubsub = self.redis.pubsub()
             pubsub.subscribe(channel)
-            logging.info(f"inside [messages] 2. subscribed.")
+            logging.info(f"[messages] 2. subscribed.")
             for pubsub_message in pubsub.listen():
-                logging.info(f"inside [messages] 3. pubsub message: {str(pubsub_message)}")
-                logging.info(f"inside [messages] 3. pubsub message type: {str(pubsub_message['type'])}")
                 if pubsub_message['type'] == 'message':
                     msg_dict = json.loads(pubsub_message['data'])
                     yield Message(**msg_dict)
@@ -162,11 +161,7 @@ class ServerSentEventsBlueprint(Blueprint):
 
         @stream_with_context
         def generator():
-            logging.info("inside stream generator.")
-            logging.info(f"inside stream generator 1. channel: {str(channel)}")
             for message in self.messages(channel=channel):
-                logging.info("inside stream generator 2.")
-                logging.info(f"inside stream generator 3. Return msg: {str(message)}")
                 yield str(message)
 
         logging.info("creating a new streaming connection.")
