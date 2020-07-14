@@ -4,13 +4,13 @@ from __future__ import unicode_literals
 from collections import OrderedDict
 from flask import Blueprint, request, current_app, json, stream_with_context
 from redis import StrictRedis
+from redis.exceptions import TimeoutError
 import six
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
-
 __version__ = '0.2.1'
 
+logging.basicConfig(level=logging.DEBUG)
 
 @six.python_2_unicode_compatible
 class Message(object):
@@ -105,12 +105,13 @@ class ServerSentEventsBlueprint(Blueprint):
         A :class:`redis.StrictRedis` instance, configured to connect to the
         current application's Redis server.
         """
+        logging.info(f"inside [redis property] 1. returning redis connection.")
         redis_url = current_app.config.get("SSE_REDIS_URL")
         if not redis_url:
             redis_url = current_app.config.get("REDIS_URL")
         if not redis_url:
             raise KeyError("Must set a redis connection URL in app config.")
-        return StrictRedis.from_url(redis_url)
+        return StrictRedis.from_url(redis_url, socket_timeout=60)
 
     def publish(self, data, type=None, id=None, retry=None, channel='sse'):
         """
@@ -136,15 +137,19 @@ class ServerSentEventsBlueprint(Blueprint):
         """
         A generator of :class:`~flask_sse.Message` objects from the given channel.
         """
-        pubsub = self.redis.pubsub()
-        pubsub.subscribe(channel)
-        logging.info(f"Subscribing to the channel: {str(channel)}")
-        for pubsub_message in pubsub.listen():
-            logging.info(f"Pubsub message type: {str(pubsub_message['type'])}")
-            if pubsub_message['type'] == 'message':
-                logging.info(f"Sending message to the channel: {str(pubsub_message['data'])}")
-                msg_dict = json.loads(pubsub_message['data'])
-                yield Message(**msg_dict)
+        try:
+            logging.info(f"inside [messages] 1. channel: {str(channel)}")
+            pubsub = self.redis.pubsub()
+            pubsub.subscribe(channel)
+            logging.info(f"inside [messages] 2. subscribed.")
+            for pubsub_message in pubsub.listen():
+                logging.info(f"inside [messages] 3. pubsub message: {str(pubsub_message)}")
+                logging.info(f"inside [messages] 3. pubsub message type: {str(pubsub_message['type'])}")
+                if pubsub_message['type'] == 'message':
+                    msg_dict = json.loads(pubsub_message['data'])
+                    yield Message(**msg_dict)
+        except TimeoutError as ex:
+            logging.info(f"Redis socket timeout, closing connection.")
 
     def stream(self):
         """
@@ -157,10 +162,14 @@ class ServerSentEventsBlueprint(Blueprint):
 
         @stream_with_context
         def generator():
+            logging.info("inside stream generator.")
+            logging.info(f"inside stream generator 1. channel: {str(channel)}")
             for message in self.messages(channel=channel):
-                logging.info(f"Return a message from a generator.")
+                logging.info("inside stream generator 2.")
+                logging.info(f"inside stream generator 3. Return msg: {str(message)}")
                 yield str(message)
 
+        logging.info("creating a new streaming connection.")
         return current_app.response_class(
             generator(),
             mimetype='text/event-stream',
