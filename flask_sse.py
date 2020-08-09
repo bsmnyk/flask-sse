@@ -170,8 +170,8 @@ class ServerSentEventsBlueprint(Blueprint):
             mimetype='text/event-stream',
         )
         logging.info(dir(response))
-        # response.headers['content-length'] = response.content.__sizeof__()
-        logging.info("Response length : {}".format(response.content_length))
+        response.headers['content-length'] = response.calculate_content_length()
+        logging.info("Response length : {}".format(response.calculate_content_length()))
 
         return response
 
