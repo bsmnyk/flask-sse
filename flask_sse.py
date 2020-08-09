@@ -169,8 +169,9 @@ class ServerSentEventsBlueprint(Blueprint):
             generator(),
             mimetype='text/event-stream',
         )
-        response.headers['content-length'] = response.content.__sizeof__()
-        logging.info("Response headers : {}".format(response.headers))
+        logging.info(dir(response))
+        # response.headers['content-length'] = response.content.__sizeof__()
+        logging.info("Response length : {}".format(response.content_length))
 
         return response
 
