@@ -172,7 +172,7 @@ class ServerSentEventsBlueprint(Blueprint):
         response.headers['content-length'] = 1121
         logging.info("Response headers : {}".format(response.headers))
 
-        return resposne
+        return response
 
 sse = ServerSentEventsBlueprint('sse', __name__)
 """
