@@ -165,11 +165,14 @@ class ServerSentEventsBlueprint(Blueprint):
                 yield str(message)
 
         logging.info("creating a new streaming connection.")
-        return current_app.response_class(
+        response = current_app.response_class(
             generator(),
             mimetype='text/event-stream',
         )
+        response.headers['content-length'] = 1121
+        logging.info("Response headers : {}".format(response.headers))
 
+        return resposne
 
 sse = ServerSentEventsBlueprint('sse', __name__)
 """
